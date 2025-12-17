@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+python-multipart
+google-generativeai
+langgraph
+langchain
+appium-python-client
+python-dotenv
