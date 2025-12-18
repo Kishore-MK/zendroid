@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import axios from 'axios'
-import { Play } from 'lucide-react'
+import { Play, Loader2 } from 'lucide-react'
 
 interface TestRunnerProps {
     apkPath: string | null;
-    onRunUpdate: (data: any) => void;
+    onRunStart: (runId: string) => void;
 }
 
-export default function TestRunner({ apkPath, onRunUpdate }: TestRunnerProps) {
+export default function TestRunner({ apkPath, onRunStart }: TestRunnerProps) {
     const [testPrompt, setTestPrompt] = useState('')
     const [loading, setLoading] = useState(false)
-    const [runId, setRunId] = useState(null)
+    const [started, setStarted] = useState(false)
 
     const startTest = async () => {
         if (!apkPath) return alert("Please upload APK first")
@@ -18,11 +18,14 @@ export default function TestRunner({ apkPath, onRunUpdate }: TestRunnerProps) {
 
         setLoading(true)
         try {
-            const res = await axios.post('http://localhost:8000/test', {
+            const res = await axios.post('http://localhost:8000/test/start', {
                 apk_path: apkPath,
                 test_prompt: testPrompt
             })
-            setRunId(res.data.run_id)
+            
+            const runId = res.data.run_id
+            onRunStart(runId)
+            setStarted(true)
             setLoading(false)
         } catch (e) {
             console.error(e)
@@ -31,18 +34,10 @@ export default function TestRunner({ apkPath, onRunUpdate }: TestRunnerProps) {
         }
     }
 
-    useEffect(() => {
-        if (!runId) return
-        const interval = setInterval(async () => {
-            try {
-                const res = await axios.get(`http://localhost:8000/test/${runId}`)
-                onRunUpdate(res.data)
-            } catch (e) {
-                console.error(e)
-            }
-        }, 2000)
-        return () => clearInterval(interval)
-    }, [runId, onRunUpdate])
+    const resetTest = () => {
+        setStarted(false)
+        setTestPrompt('')
+    }
 
     return (
         <div className="space-y-4">
@@ -51,15 +46,36 @@ export default function TestRunner({ apkPath, onRunUpdate }: TestRunnerProps) {
                 placeholder="Describe your test (e.g., 'Log in with user@example.com and verify dashboard')"
                 value={testPrompt}
                 onChange={(e) => setTestPrompt(e.target.value)}
-                disabled={loading || !!runId}
+                disabled={loading || started}
             ></textarea>
-            <button
-                onClick={startTest}
-                disabled={loading || !!runId || !apkPath}
-                className="flex items-center justify-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-lg font-medium transition-all w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
-            >
-                {loading ? 'Starting...' : runId ? 'Test Running...' : <><Play size={18} /> Start Test Agent</>}
-            </button>
+            
+            <div className="flex gap-2">
+                {!started ? (
+                    <button
+                        onClick={startTest}
+                        disabled={loading || !apkPath}
+                        className="flex items-center justify-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-lg font-medium transition-all w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+                    >
+                        {loading ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                Starting...
+                            </>
+                        ) : (
+                            <>
+                                <Play size={18} /> Start Test Agent
+                            </>
+                        )}
+                    </button>
+                ) : (
+                    <button
+                        onClick={resetTest}
+                        className="flex items-center justify-center gap-2 px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-all w-full sm:w-auto"
+                    >
+                        Start New Test
+                    </button>
+                )}
+            </div>
         </div>
     )
 }
